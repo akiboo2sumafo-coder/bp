@@ -1,0 +1,702 @@
+﻿<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>血圧トラッカー</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #080c18;
+    --bg2: #0d1526;
+    --bg3: #131f35;
+    --border: rgba(100,130,200,0.15);
+    --border2: rgba(100,130,200,0.25);
+    --accent: #5b8af0;
+    --accent2: #3d6fd4;
+    --red: #f06070;
+    --orange: #f0a060;
+    --green: #50d090;
+    --yellow: #f0d060;
+    --blue: #60a8f0;
+    --purple: #a070f0;
+    --text: #d8e4f8;
+    --text2: #8090b0;
+    --text3: #4a5a80;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, #0a1020 0%, #0f1a30 50%, #0a1528 100%);
+    border-bottom: 1px solid var(--border2);
+    padding: 20px 24px;
+    position: sticky; top: 0; z-index: 100;
+    backdrop-filter: blur(12px);
+  }
+  .header-inner { max-width: 1000px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  .title { font-size: 20px; font-weight: 900; color: #e8f0ff; letter-spacing: -0.03em; }
+  .title span { color: var(--accent); }
+  .header-right { display: flex; gap: 10px; align-items: center; }
+
+  /* Buttons */
+  .btn {
+    padding: 7px 16px; border-radius: 8px; border: 1px solid var(--border2);
+    cursor: pointer; font-size: 12px; font-weight: 700; font-family: inherit;
+    transition: all 0.2s; letter-spacing: 0.03em;
+  }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent2); }
+  .btn-ghost { background: transparent; color: var(--accent); }
+  .btn-ghost:hover { background: rgba(91,138,240,0.1); }
+  .btn-danger { background: transparent; border-color: rgba(240,96,112,0.4); color: var(--red); font-size: 11px; padding: 4px 10px; }
+  .btn-danger:hover { background: rgba(240,96,112,0.1); }
+  .btn-edit { background: transparent; border-color: rgba(91,138,240,0.4); color: var(--accent); font-size: 11px; padding: 4px 10px; }
+  .btn-edit:hover { background: rgba(91,138,240,0.1); }
+
+  /* Main */
+  .main { max-width: 1000px; margin: 0 auto; padding: 20px 24px; }
+
+  /* Stats row */
+  .stats { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .stat-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 14px 18px; flex: 1; min-width: 130px;
+  }
+  .stat-label { font-size: 10px; color: var(--text3); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 4px; }
+  .stat-value { font-size: 24px; font-weight: 900; font-family: 'JetBrains Mono', monospace; }
+  .stat-unit { font-size: 11px; color: var(--text3); font-weight: 400; }
+
+  /* Latest card */
+  .latest-card {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 16px; padding: 16px 20px; margin-bottom: 20px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+  }
+  .latest-title { font-size: 11px; color: var(--text3); font-weight: 700; letter-spacing: 0.08em; margin-bottom: 4px; }
+  .latest-bp { font-size: 32px; font-weight: 900; font-family: 'JetBrains Mono', monospace; }
+  .bp-label {
+    display: inline-block; padding: 3px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; margin-left: 10px; vertical-align: middle;
+  }
+
+  /* Controls */
+  .controls { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+  .month-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .month-tab {
+    padding: 5px 13px; border-radius: 20px; border: 1px solid var(--border2);
+    background: transparent; color: var(--text2); cursor: pointer; font-size: 12px;
+    font-weight: 600; font-family: inherit; transition: all 0.2s;
+  }
+  .month-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+  .month-tab:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+  .view-tabs { display: flex; gap: 6px; }
+  .view-tab {
+    padding: 5px 14px; border-radius: 6px; border: 1px solid var(--border2);
+    background: transparent; color: var(--text2); cursor: pointer; font-size: 12px;
+    font-weight: 600; font-family: inherit; transition: all 0.2s;
+  }
+  .view-tab.active { background: rgba(91,138,240,0.2); border-color: var(--accent); color: var(--accent); }
+
+  /* Chart */
+  .chart-wrap {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 16px; padding: 20px; margin-bottom: 20px;
+  }
+  .chart-container { position: relative; height: 300px; }
+
+  /* Table */
+  .table-wrap {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 16px; overflow: hidden; margin-bottom: 20px;
+  }
+  .table-scroll { overflow-x: auto; max-height: 500px; overflow-y: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead { position: sticky; top: 0; background: var(--bg3); z-index: 10; }
+  th {
+    padding: 10px 14px; text-align: left; font-size: 10px;
+    font-weight: 700; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  td { padding: 9px 14px; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .td-date { color: var(--text2); font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 13px; white-space: nowrap; }
+  .td-sys { color: var(--red); font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 15px; }
+  .td-dia { color: var(--orange); font-weight: 700; font-family: 'JetBrains Mono', monospace; font-size: 15px; }
+  .td-pulse { color: var(--blue); font-family: 'JetBrains Mono', monospace; }
+  .td-note { color: var(--text3); font-size: 12px; max-width: 240px; }
+  .td-actions { white-space: nowrap; }
+
+  /* Badge */
+  .badge { display: inline-block; padding: 2px 9px; border-radius: 12px; font-size: 10px; font-weight: 700; }
+
+  /* Add / Edit Form */
+  .form-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 200; padding: 20px;
+  }
+  .form-card {
+    background: var(--bg2); border: 1px solid var(--border2);
+    border-radius: 20px; padding: 28px; width: 100%; max-width: 480px;
+    box-shadow: 0 40px 80px rgba(0,0,0,0.6);
+  }
+  .form-title { font-size: 17px; font-weight: 900; color: #e8f0ff; margin-bottom: 20px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .form-full { grid-column: 1 / -1; }
+  .form-group { display: flex; flex-direction: column; gap: 5px; }
+  .form-label { font-size: 11px; color: var(--text3); font-weight: 700; letter-spacing: 0.05em; }
+  .form-input {
+    padding: 9px 12px; border-radius: 8px; font-size: 14px;
+    background: var(--bg3); border: 1px solid var(--border2);
+    color: var(--text); font-family: inherit; outline: none; transition: border-color 0.2s;
+  }
+  .form-input:focus { border-color: var(--accent); }
+  .form-actions { display: flex; gap: 10px; margin-top: 20px; justify-content: flex-end; }
+
+  /* Legend */
+  .legend { display: flex; gap: 12px; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text3); }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* Empty */
+  .empty { text-align: center; padding: 40px; color: var(--text3); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div class="title">🩺 血圧<span>トラッカー</span></div>
+    <div class="header-right">
+      <button class="btn btn-ghost" onclick="importCSV()">📤 CSVインポート</button>
+      <button class="btn btn-ghost" onclick="exportCSV()">📥 CSV出力</button>
+      <button class="btn btn-primary" onclick="openAddForm()">＋ 記録を追加</button>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+  <!-- Latest -->
+  <div class="latest-card" id="latestCard"></div>
+
+  <!-- Stats -->
+  <div class="stats" id="statsRow"></div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="month-tabs" id="monthTabs"></div>
+    <div class="view-tabs">
+      <button class="view-tab active" id="tabChart" onclick="switchView('chart')">グラフ</button>
+      <button class="view-tab" id="tabTable" onclick="switchView('table')">一覧</button>
+    </div>
+  </div>
+
+  <!-- Chart -->
+  <div class="chart-wrap" id="chartWrap">
+    <div class="chart-container"><canvas id="bpChart"></canvas></div>
+    <div style="margin-top:12px">
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:#f06070"></div>収縮期(上)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f0a060"></div>拡張期(下)</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#60a8f0"></div>脈拍</div>
+        <div class="legend-item"><div class="legend-dot" style="background:#f06070;opacity:.5;border-radius:0;width:16px;height:2px"></div>基準線 140/90</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Table -->
+  <div class="table-wrap" id="tableWrap" style="display:none">
+    <div class="table-scroll">
+      <table>
+        <thead><tr>
+          <th>日付</th><th>収縮期</th><th>拡張期</th><th>脈拍</th><th>判定</th><th>メモ</th><th></th>
+        </tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Legend for BP classification -->
+  <div class="legend" style="margin-top:8px">
+    <div class="legend-item"><div class="legend-dot" style="background:#50d090"></div>正常 (&lt;120/80)</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#a8d840"></div>正常高値</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f0d060"></div>高値</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f0a060"></div>高血圧Ⅰ度</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f06070"></div>高血圧Ⅱ度</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#c02030"></div>高血圧Ⅲ度</div>
+  </div>
+</div>
+
+<!-- Add/Edit Form -->
+<div class="form-overlay" id="formOverlay" style="display:none" onclick="closeFormIfBg(event)">
+  <div class="form-card">
+    <div class="form-title" id="formTitle">記録を追加</div>
+    <div class="form-grid">
+      <div class="form-group form-full">
+        <label class="form-label">日付</label>
+        <input class="form-input" type="date" id="fDate">
+      </div>
+      <div class="form-group">
+        <label class="form-label">収縮期（上）mmHg</label>
+        <input class="form-input" type="number" id="fSys" placeholder="例: 130">
+      </div>
+      <div class="form-group">
+        <label class="form-label">拡張期（下）mmHg</label>
+        <input class="form-input" type="number" id="fDia" placeholder="例: 85">
+      </div>
+      <div class="form-group">
+        <label class="form-label">脈拍 bpm</label>
+        <input class="form-input" type="number" id="fPulse" placeholder="例: 70">
+      </div>
+      <div class="form-group">
+        <label class="form-label">メモ（食事・飲酒など）</label>
+        <input class="form-input" type="text" id="fNote" placeholder="例: 刺身・焼酎ロック">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="closeForm()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveEntry()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// DATA
+// ============================================================
+const INITIAL_DATA = [];
+// ============================================================
+// STATE
+// ============================================================
+let data = [];
+let editingIndex = -1;
+let currentMonth = '全期間';
+let currentView = 'chart';
+let chart = null;
+
+function loadData() {
+  const saved = localStorage.getItem('bp_data');
+  if (saved) {
+    try {
+      data = JSON.parse(saved);
+    } catch(e) {
+      data = INITIAL_DATA.map((d, i) => ({ ...d, id: i }));
+    }
+  } else {
+    data = INITIAL_DATA.map((d, i) => ({ ...d, id: i }));
+    saveData();
+  }
+}
+
+function saveData(silent) {
+  localStorage.setItem('bp_data', JSON.stringify(data));
+  if (!silent) showBanner('✅ 保存しました', 'success');
+}
+
+function exportCSV() {
+  const rows = [['日付', '収縮期(上)', '拡張期(下)', '脈拍', 'メモ']];
+  data.forEach(d => rows.push([d.date, d.sys||'', d.dia||'', d.pulse||'', d.note||'']));
+  const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g,'""') + '"').join(',')).join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'bp_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  showBanner('✅ CSVを出力しました', 'success');
+}
+
+function importCSV() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.csv';
+  input.onchange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    const lines = text.replace(/^\uFEFF/, '').split('\n').filter(l => l.trim());
+    // Skip header row
+    const rows = lines.slice(1);
+    let imported = 0, skipped = 0;
+    rows.forEach(line => {
+      // Parse CSV (handle quoted fields)
+      const cols = [];
+      let cur = '', inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') { inQ = !inQ; }
+        else if (c === ',' && !inQ) { cols.push(cur); cur = ''; }
+        else { cur += c; }
+      }
+      cols.push(cur);
+      const date = cols[0]?.trim();
+      const sys = parseInt(cols[1]) || null;
+      const dia = parseInt(cols[2]) || null;
+      const pulse = parseInt(cols[3]) || null;
+      const note = cols[4]?.trim() || '';
+      if (!date) return;
+      // Skip duplicates
+      const exists = data.some(d => d.date === date);
+      if (exists) { skipped++; return; }
+      data.push({ date, sys, dia, pulse, note, id: Date.now() + imported });
+      imported++;
+    });
+    data.sort((a, b) => a.date > b.date ? 1 : -1);
+    saveData(true);
+    render();
+    showBanner('✅ ' + imported + '件インポート（重複' + skipped + '件スキップ）', 'success');
+  };
+  input.click();
+}
+
+function showBanner(msg, type) {
+  let b = document.getElementById('banner');
+  if (!b) {
+    b = document.createElement('div');
+    b.id = 'banner';
+    b.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:999;max-width:90vw;text-align:center;transition:opacity 0.5s';
+    document.body.appendChild(b);
+  }
+  b.textContent = msg;
+  b.style.opacity = '1';
+  b.style.background = type === 'success' ? 'rgba(80,208,144,0.95)' : 'rgba(91,138,240,0.95)';
+  b.style.color = '#0a0f1e';
+  clearTimeout(b._t);
+  b._t = setTimeout(() => b.style.opacity = '0', 3000);
+}
+
+// ============================================================
+// BP CLASSIFICATION
+// ============================================================
+function classifyBP(sys, dia) {
+  if (!sys || !dia) return { label: '—', color: '#888', bg: '#88888822' };
+  if (sys < 120 && dia < 80) return { label: '正常', color: '#50d090', bg: '#50d09022' };
+  if (sys < 130 && dia < 80) return { label: '正常高値', color: '#a8d840', bg: '#a8d84022' };
+  if (sys < 140 || dia < 90) return { label: '高値', color: '#f0d060', bg: '#f0d06022' };
+  if (sys < 160 || dia < 100) return { label: '高血圧Ⅰ度', color: '#f0a060', bg: '#f0a06022' };
+  if (sys < 180 || dia < 110) return { label: '高血圧Ⅱ度', color: '#f06070', bg: '#f0607022' };
+  return { label: '高血圧Ⅲ度', color: '#c02030', bg: '#c0203022' };
+}
+
+// ============================================================
+// RENDER
+// ============================================================
+function getMonths() {
+  const months = new Set();
+  data.forEach(d => {
+    if (d.date) months.add(d.date.substring(0, 7));
+  });
+  return ['全期間', ...Array.from(months).sort()];
+}
+
+function formatMonthLabel(m) {
+  if (m === '全期間') return '全期間';
+  const [y, mo] = m.split('-');
+  return `${y.slice(2)}/${mo}`;
+}
+
+function getFiltered() {
+  if (currentMonth === '全期間') return data.filter(d => d.sys);
+  return data.filter(d => d.date && d.date.startsWith(currentMonth) && d.sys);
+}
+
+function renderMonthTabs() {
+  const tabs = document.getElementById('monthTabs');
+  tabs.innerHTML = getMonths().map(m =>
+    `<button class="month-tab ${m === currentMonth ? 'active' : ''}" onclick="setMonth('${m}')">${formatMonthLabel(m)}</button>`
+  ).join('');
+}
+
+function renderLatest() {
+  const valid = data.filter(d => d.sys).sort((a, b) => a.date > b.date ? 1 : -1);
+  const latest = valid[valid.length - 1];
+  const card = document.getElementById('latestCard');
+  if (!latest) { card.innerHTML = ''; return; }
+  const cls = classifyBP(latest.sys, latest.dia);
+  const d = new Date(latest.date);
+  const label = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日`;
+  card.innerHTML = `
+    <div>
+      <div class="latest-title">最新の記録</div>
+      <div style="font-size:12px;color:var(--text3)">${label}</div>
+    </div>
+    <div>
+      <div class="latest-title">血圧</div>
+      <div class="latest-bp" style="color:${cls.color}">${latest.sys}/${latest.dia}
+        <span class="bp-label" style="background:${cls.bg};color:${cls.color}">${cls.label}</span>
+      </div>
+    </div>
+    <div><div class="latest-title">脈拍</div><div style="font-size:24px;font-weight:900;color:var(--blue);font-family:'JetBrains Mono',monospace">${latest.pulse || '—'}</div></div>
+    ${latest.note ? `<div style="color:var(--text3);font-size:12px;flex:1">${latest.note}</div>` : ''}
+  `;
+}
+
+function renderStats() {
+  const filtered = getFiltered();
+  const row = document.getElementById('statsRow');
+  if (!filtered.length) { row.innerHTML = ''; return; }
+  const avgSys = Math.round(filtered.reduce((a, b) => a + b.sys, 0) / filtered.length);
+  const avgDia = Math.round(filtered.reduce((a, b) => a + b.dia, 0) / filtered.length);
+  const maxSys = Math.max(...filtered.map(d => d.sys));
+  const minSys = Math.min(...filtered.map(d => d.sys));
+  const highCount = filtered.filter(d => d.sys >= 140 || d.dia >= 90).length;
+  const stats = [
+    { label: '平均収縮期', value: avgSys, unit: 'mmHg', color: '#f06070' },
+    { label: '平均拡張期', value: avgDia, unit: 'mmHg', color: '#f0a060' },
+    { label: '最高値', value: maxSys, unit: 'mmHg', color: '#fca5a5' },
+    { label: '最低値', value: minSys, unit: 'mmHg', color: '#60a8f0' },
+    { label: '高血圧日数', value: `${highCount}/${filtered.length}`, unit: '日', color: '#a070f0' },
+  ];
+  row.innerHTML = stats.map(s => `
+    <div class="stat-card">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value" style="color:${s.color}">${s.value}<span class="stat-unit">${s.unit}</span></div>
+    </div>
+  `).join('');
+}
+
+function renderChart() {
+  const filtered = getFiltered();
+  const labels = filtered.map(d => {
+    const dt = new Date(d.date);
+    return `${dt.getMonth()+1}/${dt.getDate()}`;
+  });
+  const sysList = filtered.map(d => d.sys);
+  const diaList = filtered.map(d => d.dia);
+  const pulseList = filtered.map(d => d.pulse);
+
+  if (chart) chart.destroy();
+  const ctx = document.getElementById('bpChart').getContext('2d');
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: '収縮期', data: sysList,
+          borderColor: '#f06070', backgroundColor: 'transparent',
+          borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0.3,
+        },
+        {
+          label: '拡張期', data: diaList,
+          borderColor: '#f0a060', backgroundColor: 'transparent',
+          borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, tension: 0.3,
+        },
+        {
+          label: '脈拍', data: pulseList,
+          borderColor: '#60a8f0', backgroundColor: 'transparent',
+          borderWidth: 1.5, borderDash: [5,3], pointRadius: 0, pointHoverRadius: 4, tension: 0.3,
+        },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(10,15,30,0.95)',
+          borderColor: 'rgba(100,130,200,0.3)', borderWidth: 1,
+          titleColor: '#8090b0', bodyColor: '#d8e4f8',
+          callbacks: {
+            afterBody: (items) => {
+              const idx = items[0]?.dataIndex;
+              const note = filtered[idx]?.note;
+              return note ? [`📝 ${note}`] : [];
+            }
+          }
+        },
+        annotation: {}
+      },
+      scales: {
+        x: {
+          ticks: { color: '#4a5a80', font: { size: 10 }, maxTicksLimit: 12 },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        },
+        y: {
+          min: 60, max: 200,
+          ticks: { color: '#4a5a80', font: { size: 10 } },
+          grid: { color: 'rgba(255,255,255,0.04)' }
+        }
+      },
+      // Reference lines via plugin
+      plugins: {
+        customLines: true,
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(10,15,30,0.95)',
+          borderColor: 'rgba(100,130,200,0.3)', borderWidth: 1,
+          titleColor: '#8090b0', bodyColor: '#d8e4f8',
+        }
+      }
+    },
+    plugins: [{
+      id: 'refLines',
+      afterDraw(chart) {
+        const { ctx, chartArea, scales } = chart;
+        [{ val: 140, color: 'rgba(240,96,112,0.5)' }, { val: 90, color: 'rgba(240,160,96,0.5)' }].forEach(({ val, color }) => {
+          const y = scales.y.getPixelForValue(val);
+          ctx.save();
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 1;
+          ctx.setLineDash([6, 4]);
+          ctx.beginPath();
+          ctx.moveTo(chartArea.left, y);
+          ctx.lineTo(chartArea.right, y);
+          ctx.stroke();
+          ctx.fillStyle = color;
+          ctx.font = '10px JetBrains Mono';
+          ctx.fillText(val, chartArea.right + 4, y + 4);
+          ctx.restore();
+        });
+      }
+    }]
+  });
+}
+
+function renderTable() {
+  const filtered = getFiltered().slice().reverse();
+  const tbody = document.getElementById('tableBody');
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">データなし</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered.map((d, i) => {
+    const globalIdx = data.indexOf(d);
+    const cls = classifyBP(d.sys, d.dia);
+    const dt = new Date(d.date);
+    const dateStr = `${dt.getFullYear().toString().slice(2)}/${String(dt.getMonth()+1).padStart(2,'0')}/${String(dt.getDate()).padStart(2,'0')}`;
+    return `<tr>
+      <td class="td-date">${dateStr}</td>
+      <td class="td-sys">${d.sys || '—'}</td>
+      <td class="td-dia">${d.dia || '—'}</td>
+      <td class="td-pulse">${d.pulse || '—'}</td>
+      <td><span class="badge" style="background:${cls.bg};color:${cls.color}">${cls.label}</span></td>
+      <td class="td-note">${d.note || ''}</td>
+      <td class="td-actions">
+        <button class="btn btn-edit" onclick="openEditForm(${globalIdx})">編集</button>
+        <button class="btn btn-danger" onclick="deleteEntry(${globalIdx})">削除</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function render() {
+  renderMonthTabs();
+  renderLatest();
+  renderStats();
+  if (currentView === 'chart') renderChart();
+  else renderTable();
+}
+
+// ============================================================
+// ACTIONS
+// ============================================================
+function setMonth(m) {
+  currentMonth = m;
+  render();
+}
+
+function switchView(v) {
+  currentView = v;
+  document.getElementById('chartWrap').style.display = v === 'chart' ? 'block' : 'none';
+  document.getElementById('tableWrap').style.display = v === 'table' ? 'block' : 'none';
+  document.getElementById('tabChart').className = 'view-tab' + (v === 'chart' ? ' active' : '');
+  document.getElementById('tabTable').className = 'view-tab' + (v === 'table' ? ' active' : '');
+  if (v === 'chart') renderChart();
+  else renderTable();
+}
+
+function openAddForm() {
+  editingIndex = -1;
+  document.getElementById('formTitle').textContent = '記録を追加';
+  // Get today in local timezone (not UTC)
+  const now = new Date();
+  const today = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  document.getElementById('fDate').value = today;
+  document.getElementById('fSys').value = '';
+  document.getElementById('fDia').value = '';
+  document.getElementById('fPulse').value = '';
+  document.getElementById('fNote').value = '';
+  document.getElementById('formOverlay').style.display = 'flex';
+}
+
+function openEditForm(idx) {
+  editingIndex = idx;
+  const d = data[idx];
+  document.getElementById('formTitle').textContent = '記録を編集';
+  document.getElementById('fDate').value = d.date;
+  document.getElementById('fSys').value = d.sys || '';
+  document.getElementById('fDia').value = d.dia || '';
+  document.getElementById('fPulse').value = d.pulse || '';
+  document.getElementById('fNote').value = d.note || '';
+  document.getElementById('formOverlay').style.display = 'flex';
+}
+
+function closeForm() {
+  document.getElementById('formOverlay').style.display = 'none';
+}
+
+function closeFormIfBg(e) {
+  if (e.target === document.getElementById('formOverlay')) closeForm();
+}
+
+function saveEntry() {
+  const date = document.getElementById('fDate').value;
+  const sys = parseInt(document.getElementById('fSys').value) || null;
+  const dia = parseInt(document.getElementById('fDia').value) || null;
+  const pulse = parseInt(document.getElementById('fPulse').value) || null;
+  const note = document.getElementById('fNote').value.trim();
+  if (!date) return alert('日付を入力してください');
+
+  const entry = { date, sys, dia, pulse, note, id: Date.now() };
+  if (editingIndex >= 0) {
+    entry.id = data[editingIndex].id;
+    data[editingIndex] = entry;
+  } else {
+    data.push(entry);
+    data.sort((a, b) => a.date > b.date ? 1 : -1);
+  }
+  saveData(true);
+  closeForm();
+  render();
+}
+
+function deleteEntry(idx) {
+  if (!confirm('この記録を削除しますか？')) return;
+  data.splice(idx, 1);
+  saveData(true);
+  render();
+}
+
+function exportCSV() {
+  const rows = [['日付', '収縮期', '拡張期', '脈拍', 'メモ']];
+  data.forEach(d => rows.push([d.date, d.sys||'', d.dia||'', d.pulse||'', d.note||'']));
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `血圧記録_${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+}
+
+// ============================================================
+// INIT
+// ============================================================
+loadData();
+render();
+</script>
+</body>
+</html>
